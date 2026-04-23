@@ -9,27 +9,48 @@
   <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
   <script type="module" src="https://js.arcgis.com/5.0/"></script>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    html, body, calcite-shell {
+    html,
+    body,
+    calcite-shell {
       width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
     }
 
-    #shellPanelStart, #shellPanelEnd {
-
+    #shellPanelBottom {
+      /* height: 300px; */
+      overflow: hidden;
     }
 
-    #shellPanelTop, #shellPanelBottom {
-
-    }
-
-    #mainDiv {
-      width: 100%;
+    #chartWrap {
       height: 100%;
-      margin: 0;
-      padding: 0;
+      padding: 12px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #chartHeader {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    #chartCanvasWrap {
+      flex: 1;
+      min-height: 0;
+      /* これがないと flex 内 canvas が潰れることがあります */
+    }
+
+    #answerChart {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
     }
   </style>
 
@@ -63,7 +84,7 @@
       await portal.load();
 
       esriId.checkSignInStatus(info.portalUrl + "/sharing")
-        .then(() => {});
+        .then(() => { });
     }
 
     pageLoaded();
@@ -82,20 +103,316 @@
       <arcgis-layer-list reference-element="arcgisMap"></arcgis-layer-list>
     </calcite-shell-panel>
 
-    <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap"></arcgis-map>
+    <calcite-shell-panel id="shellPanelBottom" slot="panel-bottom" collapsed>
+      <div id="chartWrap">
+        <div id="chartHeader">
+          <calcite-label scale="s" layout="inline">
+            対象レイヤー
+            <calcite-select id="layerSelect" scale="s">
+              <calcite-option value="all" selected>タップ地点</calcite-option>
+              <calcite-option value="q1">Q1</calcite-option>
+              <calcite-option value="q2">Q2</calcite-option>
+              <calcite-option value="q3">Q3</calcite-option>
+              <calcite-option value="q4">Q4</calcite-option>
+              <calcite-option value="q5">Q5</calcite-option>
+            </calcite-select>
+          </calcite-label>
+
+          <span id="chartStatus" style="margin-left:12px; font-size:12px; opacity:.8;"></span>
+        </div>
+
+        <div id="chartCanvasWrap">
+          <canvas id="answerChart"></canvas>
+        </div>
+      </div>
+    </calcite-shell-panel>
+
+    <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap">
+      <arcgis-zoom slot="top-left"></arcgis-zoom>
+      <arcgis-home slot="top-left"></arcgis-home>
+      <calcite-button id="toggleChartBtn" slot="bottom-right" icon-start="graph-bar" kind="neutral" appearance="outline-fill"></calcite-button>
+    </arcgis-map>
 
   </calcite-shell>
 
   <script type="module">
-    // const FeatureFilter = await $arcgis.import("@arcgis/core/layers/support/FeatureFilter.js");
-    
-    // -----
     const arcgisMap = document.getElementById("arcgisMap");
     await arcgisMap.viewOnReady();
 
-    // -----
+    arcgisMap.view.constraints = { snapToZoom: false };
+
+    // 表示用（任意）
+    const chartStatus = document.getElementById("chartStatus");
+
+    // reactiveUtils（使わなくてもOKだが、保険で残しておく）
+    const [reactiveUtils] = await $arcgis.import([
+      "@arcgis/core/core/reactiveUtils.js"
+    ]);
+
+    // -----------------------------
+    // 1) LayerView の取得（Promise.all で待つ）
+    // -----------------------------
+    const layerViewsObj = { all: null, q1: null, q2: null, q3: null, q4: null, q5: null };
+
+    const titleToKey = new Map([
+      ["タップ地点", "all"],
+      ["Q1", "q1"],
+      ["Q2", "q2"],
+      ["Q3", "q3"],
+      ["Q4", "q4"],
+      ["Q5", "q5"],
+    ]);
+
+    const layerViewReadyPromises = [];
+    arcgisMap.map.allLayers.forEach(layer => {
+      const key = titleToKey.get(layer.title);
+      if (!key) return;
+
+      layerViewReadyPromises.push(
+        arcgisMap.whenLayerView(layer).then(lv => {
+          layerViewsObj[key] = lv;
+        })
+      );
+    });
+
+    await Promise.all(layerViewReadyPromises);
+
+    // -----------------------------
+    // 2) Chart.js 初期化
+    // -----------------------------
+    const ctx = document.getElementById("answerChart");
+    const shellPanelBottom = document.getElementById("shellPanelBottom");
+
+    const chart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "TapCount MAX 上位5 (UserName)",
+          data: [],
+          backgroundColor: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#bab0ab"],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: true },
+          title: { display: true, text: "上位 5 ユーザー（TapCount MAX / アプリ起動以降）" }
+        },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+
+    new ResizeObserver(() => chart.resize()).observe(shellPanelBottom);
+
+    function setChartNoData(message = "受信データなし") {
+      chart.data.labels = [message];
+      chart.data.datasets[0].data = [0];
+      chart.update("none");
+    }
+
+    // -----------------------------
+    // 3) UserName → TapCount MAX を「レイヤーごと」に保持
+    // -----------------------------
+    const statsByLayer = {
+      all: new Map(),
+      q1: new Map(),
+      q2: new Map(),
+      q3: new Map(),
+      q4: new Map(),
+      q5: new Map()
+    };
+
+    function ingestGraphicsMax(map, graphics) {
+      if (!graphics) return;
+
+      // graphics が Collection / Array / 単一 どれでも対応
+      const arr = Array.isArray(graphics)
+        ? graphics
+        : (graphics?.toArray ? graphics.toArray() : [graphics]);
+
+      for (const g of arr) {
+        const a = g?.attributes;
+        if (!a) continue;
+
+        const name = a.UserName;
+        const tap = a.TapCount;
+
+        if (name == null || tap == null) continue;
+
+        const user = String(name);
+        const value = Number(tap) || 0;
+
+        const cur = map.get(user);
+        if (cur == null || value > cur) map.set(user, value);
+      }
+    }
+
+    // チャートの不要な再描画を避けるため、前回の top5 を記録
+    let lastSignature = "";
+
+    function renderTop5FromMap(map) {
+      if (!map || map.size === 0) {
+        setChartNoData("受信データなし");
+        lastSignature = "NODATA";
+        return;
+      }
+
+      const top = [...map.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      if (top.length === 0) {
+        setChartNoData("受信データなし");
+        lastSignature = "NODATA";
+        return;
+      }
+
+      // 変化検知（同じ内容なら update しない）
+      const signature = top.map(([u, v]) => `${u}:${v}`).join("|");
+      if (signature === lastSignature) return;
+      lastSignature = signature;
+
+      chart.data.labels = top.map(([user]) => user);
+      chart.data.datasets[0].data = top.map(([, maxTap]) => maxTap);
+      chart.update("none");
+    }
+
+    // -----------------------------
+    // 4) 初期化：切替時に LayerView が保持するデータから MAX を作る
+    //    ※ map が空のときだけ初回ロード（＝アプリ起動以降の範囲）
+    // -----------------------------
+    async function initStatsFromLayerView(key) {
+      const lv = layerViewsObj[key];
+      if (!lv) return;
+
+      const map = statsByLayer[key];
+      if (map.size > 0) return;
+
+      // lv.graphics が取れるなら使う（速い）
+      if (lv.graphics) {
+        ingestGraphicsMax(map, lv.graphics);
+        return;
+      }
+
+      // フォールバック：クエリ
+      const fs = await lv.queryFeatures({
+        where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
+        outFields: ["UserName", "TapCount"],
+        returnGeometry: false,
+        num: 2000
+      });
+      ingestGraphicsMax(map, fs?.features);
+    }
+
+    // -----------------------------
+    // 5) レイヤー切替 UI
+    // -----------------------------
+    let activeKey = "all";
+
+    async function activateLayer(key) {
+      activeKey = key;
+
+      // 初期化（初回のみ）
+      await initStatsFromLayerView(key);
+
+      // 切替時は即描画
+      renderTop5FromMap(statsByLayer[key]);
+
+      // 切替直後に、ポーリングを待たず即1回クエリ（体感向上）
+      pollActiveLayerOnce();
+    }
+
+    const layerSelect = document.getElementById("layerSelect");
+    if (layerSelect) {
+      layerSelect.addEventListener("calciteSelectChange", (e) => {
+        activateLayer(e.target.value);
+      });
+    }
+
+    // -----------------------------
+    // 6) 追加：定期ポーリング（setInterval）でリアルタイム風に更新
+    // -----------------------------
+    const POLL_MS = 1000;   // 例: 500〜2000（短いほどリアルタイムだが負荷増）
+    const QUERY_NUM = 800;  // 例: 300〜2000（多いほど上位の取りこぼしが減るが負荷増）
+
+    let pollTimer = null;
+    let pollRunning = false;
+
+    async function pollActiveLayerOnce() {
+      // 多重実行防止（前のクエリが終わってないのに次が来たらスキップ）
+      if (pollRunning) return;
+      pollRunning = true;
+
+      try {
+        const lv = layerViewsObj[activeKey];
+        if (!lv) return;
+
+        // ビュー側のキャッシュを対象にクエリ（TapCount DESCでMAX拾いやすく）
+        const fs = await lv.queryFeatures({
+          where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
+          outFields: ["UserName", "TapCount"],
+          returnGeometry: false,
+          orderByFields: ["TapCount DESC"],
+          num: QUERY_NUM
+        });
+
+        const feats = fs?.features ?? [];
+        if (!feats.length) {
+          setChartNoData("受信データなし");
+          if (chartStatus) chartStatus.textContent = "受信なし";
+          return;
+        }
+
+        // MAX 更新（既存 Map に max を入れる）
+        const map = statsByLayer[activeKey];
+        ingestGraphicsMax(map, feats);
+
+        // チャート更新（変更があったときだけ update）
+        renderTop5FromMap(map);
+
+        if (chartStatus) {
+          chartStatus.textContent = `更新: ${new Date().toLocaleTimeString()}  (取得:${Math.min(feats.length, QUERY_NUM)})`;
+        }
+      } catch (e) {
+        // 失敗しても落とさない（通信/権限など一時エラー対策）
+        if (chartStatus) chartStatus.textContent = "更新エラー";
+        // console.debug(e);
+      } finally {
+        pollRunning = false;
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollTimer = setInterval(pollActiveLayerOnce, POLL_MS);
+      pollActiveLayerOnce(); // 開始直後に1回
+    }
+
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    // -----------------------------
+    // 7) 初回起動
+    // -----------------------------
+    await activateLayer("all");
+    startPolling();
+
+
+    // チャートの表示切り替え
+    const toggleChartBtn = document.getElementById("toggleChartBtn");
+    toggleChartBtn.addEventListener("click", () => {
+      shellPanelBottom.toggleAttribute("collapsed");
+    });
 
   </script>
+
+
 </body>
 
 </html>
