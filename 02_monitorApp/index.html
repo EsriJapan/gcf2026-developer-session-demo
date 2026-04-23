@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Session Demo - Answer Monitor</title>
+
+  <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
+  <script type="module" src="https://js.arcgis.com/5.0/"></script>
+
+  <style>
+    html, body, calcite-shell {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #shellPanelStart, #shellPanelEnd {
+
+    }
+
+    #shellPanelTop, #shellPanelBottom {
+
+    }
+
+    #mainDiv {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+
+  <!-- OAuth 認証コード -->
+  <script type="module">
+
+    async function pageLoaded() {
+      const [
+        esriConfig,
+        esriId,
+        OAuthInfo,
+        Portal
+      ] = await $arcgis.import([
+        "@arcgis/core/config.js",
+        "@arcgis/core/identity/IdentityManager.js",
+        "@arcgis/core/identity/OAuthInfo",
+        "@arcgis/core/portal/Portal.js"
+      ]);
+
+      esriConfig.portalUrl = "https://gcfdemo-enterprise121.pp2g-esrij.com/portal";
+
+      const info = new OAuthInfo({
+        appId: "9yhHlNsxgacu2dJU",
+        portalUrl: esriConfig.portalUrl,
+        popup: false
+      });
+
+      esriId.registerOAuthInfos([info]);
+      esriId.getCredential(info.portalUrl + "/sharing");
+      const portal = new Portal();
+      await portal.load();
+
+      esriId.checkSignInStatus(info.portalUrl + "/sharing")
+        .then(() => {});
+    }
+
+    pageLoaded();
+  </script>
+
+</head>
+
+<body>
+  <calcite-shell>
+
+    <calcite-navigation slot="header">
+      <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答確認)"></calcite-navigation-logo>
+    </calcite-navigation>
+
+    <!-- <calcite-navigation slot="footer">
+      <calcite-navigation-logo slot="logo" heading="slot：footer" scale="l"></calcite-navigation-logo>
+    </calcite-navigation> -->
+
+    <!-- <calcite-shell-panel id="shellPanelEnd" slot="panel-end">
+      <div>slot：panel-end</div>
+    </calcite-shell-panel> -->
+
+    <!-- <calcite-shell-panel id="shellPanelTop" slot="panel-top">
+      <div>slot：panel-top</div>
+    </calcite-shell-panel>
+    <calcite-shell-panel id="shellPanelBottom" slot="panel-bottom">
+      <div>slot：panel-bottom</div>
+    </calcite-shell-panel> -->
+
+    <calcite-shell-panel id="shellPanelStart" slot="panel-start">
+      <arcgis-layer-list reference-element="arcgisMap"></arcgis-layer-list>
+    </calcite-shell-panel>
+
+    <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap"></arcgis-map>
+
+  </calcite-shell>
+</body>
+
+</html>

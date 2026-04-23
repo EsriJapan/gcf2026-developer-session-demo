@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Session Demo - Post Features</title>
+
+  <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
+  <script type="module" src="https://js.arcgis.com/5.0/"></script>
+
+  <style>
+    html, body, calcite-shell {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #mainDiv, arcgis-map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #tapCountDiv {
+      width: 150px;
+      height: 150px;
+      padding: 5px;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-content: center;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #tapCountSpan {
+      font-size: 70px;
+    }
+
+    #dropdownBtn {
+      --calcite-button-border-color: gray;
+    }
+  </style>
+
+</head>
+
+<body>
+  <calcite-shell>
+
+    <calcite-navigation slot="header">
+      <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答入力)"></calcite-navigation-logo>
+    </calcite-navigation>
+
+    
+    <calcite-dialog id="userDialog" heading="ユーザー名を入力してください" scale="l" modal placement="center" outside-close-disabled escape-disabled close-disabled>
+      <calcite-label>
+        ユーザー名：
+        <calcite-input id="userNameInput" placeholder="ゲスト" clearable></calcite-input>
+      </calcite-label>
+
+      <calcite-notice id="userNameNotice" kind="danger" open style="display:none; margin-top: 0.75rem;">
+        <div slot="message">ユーザー名を入力してください</div>
+      </calcite-notice>
+
+      <calcite-button id="userStartBtn" slot="footer-end" appearance="solid">
+        開始
+      </calcite-button>
+    </calcite-dialog>
+
+    <div id="mainDiv">
+      <arcgis-map item-id="f58afd49c0d842a79301966f53fff4f8" center="138, 35.5" zoom="4">
+        <arcgis-zoom slot="top-left"></arcgis-zoom>
+        <arcgis-search slot="top-right"></arcgis-search>
+        <div id="tapCountDiv" slot="bottom-right">
+          <span id="tapCountSpan">0</span>
+          <span>タップ回数</span>
+        </div>
+
+        <calcite-dropdown slot="bottom-right" scale="l">
+          <calcite-button id="dropdownBtn" slot="trigger" kind="neutral" scale="l">問題番号を選択</calcite-button>
+          <calcite-dropdown-group>
+            <calcite-dropdown-item value="1">問 1</calcite-dropdown-item>
+            <calcite-dropdown-item value="2">問 2</calcite-dropdown-item>
+            <calcite-dropdown-item value="3">問 3</calcite-dropdown-item>
+            <calcite-dropdown-item value="4">問 4</calcite-dropdown-item>
+            <calcite-dropdown-item value="5">問 5</calcite-dropdown-item>
+          </calcite-dropdown-group>
+        </calcite-dropdown>
+        <!-- <div id="questionRadioDiv" slot="bottom-left">
+          <b>問題番号</b>
+          <calcite-radio-button-group name="QNum" layout="vertical" scale="l">
+            <calcite-label layout="inline" class="qNumLabel">
+              <calcite-radio-button value="1" scale="l" checked></calcite-radio-button>
+              Q1
+            </calcite-label>
+            <calcite-label layout="inline" class="qNumLabel">
+              <calcite-radio-button value="2" scale="l"></calcite-radio-button>
+              Q2
+            </calcite-label>
+            <calcite-label layout="inline" class="qNumLabel">
+              <calcite-radio-button value="3" scale="l"></calcite-radio-button>
+              Q3
+            </calcite-label>
+            <calcite-label layout="inline" class="qNumLabel">
+              <calcite-radio-button value="4" scale="l"></calcite-radio-button>
+              Q4
+            </calcite-label>
+            <calcite-label layout="inline" class="qNumLabel">
+              <calcite-radio-button value="5" scale="l"></calcite-radio-button>
+              Q5
+            </calcite-label>
+          </calcite-radio-button-group>
+        </div> -->
+      </arcgis-map>
+    </div>
+
+  </calcite-shell>
+
+  <script type="module">
+    const esriRequest = await $arcgis.import("@arcgis/core/request.js");
+    // -----
+    
+    // アプリ全体変数
+    // ユーザー GUID
+    // const guid = crypto.randomUUID();
+    // console.log(guid);
+
+    // タップ数のカウント
+    let tapCount = 0;
+
+    // ユーザー名
+    let userName = "ゲスト";
+
+    // Velocity フィード
+    const apiUrl = "https://isf3wq6ep9.execute-api.ap-northeast-1.amazonaws.com/gcfdemo/tap";
+
+    // -----
+
+    // Map コンポーネントの取得
+    const arcgisMap = document.querySelector("arcgis-map");
+    await arcgisMap.viewOnReady();
+
+    // -----
+
+    // ダイアログの制御
+    const userDialog = document.getElementById("userDialog");
+    const userNameInput = document.getElementById("userNameInput");
+    const userStartBtn = document.getElementById("userStartBtn");
+    const userNameNotice = document.getElementById("userNameNotice");
+
+    // 初回はダイアログを開く
+    userDialog.open = true; // open で表示
+    queueMicrotask(() => userNameInput.setFocus?.());
+
+    
+    // 確定処理（空欄なら自動で「ゲスト」）
+    const confirmUserName = () => {
+      const v = (userNameInput.value || "").trim();
+
+      // 空欄ならゲストにする（エラーにしない）
+      userName = v || "ゲスト";
+
+      // notice は常に隠す（空欄OKにするため）
+      userNameNotice.style.display = "none";
+      userNameInput.status = "idle"; // もしくは "valid" でもOK
+
+      // 閉じる
+      userDialog.open = false;
+
+      // console.log("userName:", userName, "guid:", guid);
+    };
+
+    // ボタンで確定
+    userStartBtn.addEventListener("click", confirmUserName);
+
+    // Enter でも確定
+    userNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") confirmUserName();
+    });
+
+    // -----
+
+    // 問題番号の変更
+    let qNum = 0;
+    const calciteDropdown = document.querySelector("calcite-dropdown");
+    const calciteDropdownItems = document.querySelectorAll("calcite-dropdown-items");
+
+    calciteDropdown.addEventListener("calciteDropdownSelect", (evt) => {
+
+      console.log(evt);
+
+      calciteDropdownItems.forEach(item => {
+        if(item.selected === true){
+          qNum = item.value
+        }
+      });
+
+    });
+
+    // const calciteRadioGroup = document.querySelector("calcite-radio-button-group");
+    // const calciteRadioBtns = document.querySelectorAll("calcite-radio-button");
+
+    // calciteRadioGroup.addEventListener("calciteRadioButtonGroupChange", (evt) => {
+
+    //   calciteRadioBtns.forEach(radioBtn => {
+    //     if(radioBtn.checked === true){
+    //       qNum = radioBtn.value
+    //     }
+    //   });
+    // });
+
+    // -----
+
+    // ダブルクリックによるズームの無効化
+    arcgisMap.addEventListener("arcgisViewDoubleClick", (evt) => {
+      evt.detail.stopPropagation();
+
+      updateTapCount("double");
+      postTappedPoint(evt.detail.mapPoint);
+    });
+
+    arcgisMap.addEventListener("arcgisViewClick", (evt) => {
+      updateTapCount("single");
+      postTappedPoint(evt.detail.mapPoint);
+    });
+
+    // タップ回数の更新
+    const tapCountSpan = document.getElementById("tapCountSpan");
+
+    const updateTapCount = (clickType) => {
+
+      switch(clickType){
+        case "double":
+          tapCount += 2;
+          break;
+        case "single":
+          tapCount += 1
+          break;
+      }
+
+      tapCountSpan.innerText = tapCount
+    };
+
+    // タップ地点の情報を POST
+    const postTappedPoint = (mapPoint) => {
+      // console.log("経度：" + mapPoint.longitude + ", 緯度：" + mapPoint.latitude);
+
+      // リクエスト用 JSON
+      const params = {
+        Guid: crypto.randomUUID(),
+        UserName: userName,
+        Qnum: qNum,
+        InputDate: Date.now(),
+        Lat: mapPoint.latitude,
+        Lon: mapPoint.longitude,
+        TapCount: tapCount
+      }
+
+      // リクエスト
+      esriRequest(apiUrl,{
+        method: "post",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(params)
+      });
+
+    };
+
+    // -----
+    
+    // Search による Popup を無効化
+    const arcgisSearch = document.querySelector("arcgis-search");
+    arcgisSearch.popupDisabled = true;
+
+  </script>
+</body>
+
+</html>
