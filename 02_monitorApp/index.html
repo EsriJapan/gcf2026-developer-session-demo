@@ -78,21 +78,6 @@
       <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答確認)"></calcite-navigation-logo>
     </calcite-navigation>
 
-    <!-- <calcite-navigation slot="footer">
-      <calcite-navigation-logo slot="logo" heading="slot：footer" scale="l"></calcite-navigation-logo>
-    </calcite-navigation> -->
-
-    <!-- <calcite-shell-panel id="shellPanelEnd" slot="panel-end">
-      <div>slot：panel-end</div>
-    </calcite-shell-panel> -->
-
-    <!-- <calcite-shell-panel id="shellPanelTop" slot="panel-top">
-      <div>slot：panel-top</div>
-    </calcite-shell-panel>
-    <calcite-shell-panel id="shellPanelBottom" slot="panel-bottom">
-      <div>slot：panel-bottom</div>
-    </calcite-shell-panel> -->
-
     <calcite-shell-panel id="shellPanelStart" slot="panel-start">
       <arcgis-layer-list reference-element="arcgisMap"></arcgis-layer-list>
     </calcite-shell-panel>
@@ -100,6 +85,17 @@
     <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap"></arcgis-map>
 
   </calcite-shell>
+
+  <script type="module">
+    // const FeatureFilter = await $arcgis.import("@arcgis/core/layers/support/FeatureFilter.js");
+    
+    // -----
+    const arcgisMap = document.getElementById("arcgisMap");
+    await arcgisMap.viewOnReady();
+
+    // -----
+
+  </script>
 </body>
 
 </html>

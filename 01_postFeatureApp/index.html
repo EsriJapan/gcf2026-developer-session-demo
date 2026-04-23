@@ -81,11 +81,11 @@
         <calcite-dropdown slot="bottom-right" scale="l">
           <calcite-button id="dropdownBtn" slot="trigger" kind="neutral" scale="l">問題番号を選択</calcite-button>
           <calcite-dropdown-group>
-            <calcite-dropdown-item value="1">問 1</calcite-dropdown-item>
-            <calcite-dropdown-item value="2">問 2</calcite-dropdown-item>
-            <calcite-dropdown-item value="3">問 3</calcite-dropdown-item>
-            <calcite-dropdown-item value="4">問 4</calcite-dropdown-item>
-            <calcite-dropdown-item value="5">問 5</calcite-dropdown-item>
+            <calcite-dropdown-item>問 1</calcite-dropdown-item>
+            <calcite-dropdown-item>問 2</calcite-dropdown-item>
+            <calcite-dropdown-item>問 3</calcite-dropdown-item>
+            <calcite-dropdown-item>問 4</calcite-dropdown-item>
+            <calcite-dropdown-item>問 5</calcite-dropdown-item>
           </calcite-dropdown-group>
         </calcite-dropdown>
         <!-- <div id="questionRadioDiv" slot="bottom-left">
@@ -185,15 +185,23 @@
     // 問題番号の変更
     let qNum = 0;
     const calciteDropdown = document.querySelector("calcite-dropdown");
-    const calciteDropdownItems = document.querySelectorAll("calcite-dropdown-items");
+    const calciteDropdownItems = document.querySelectorAll("calcite-dropdown-item");
 
     calciteDropdown.addEventListener("calciteDropdownSelect", (evt) => {
 
-      console.log(evt);
-
       calciteDropdownItems.forEach(item => {
+        console.log(item);
         if(item.selected === true){
-          qNum = item.value
+          
+          const parentNode = item.parentNode;
+          for(let i = 0; i < parentNode.children.length; i++){
+
+            if(parentNode.children[i] == item){
+
+              qNum = i + 1;
+
+            }
+          }
         }
       });
 
