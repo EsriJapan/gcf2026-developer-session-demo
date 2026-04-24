@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Developer Session Demo - Load Test</title>
 
-  <!-- ArcGIS Maps SDK for JavaScript 5.0 (Calcite等も含む) -->
+  <!-- ArcGIS Maps SDK for JavaScript 5.0 (Calcite含む) -->
   <script type="module" src="https://js.arcgis.com/5.0/"></script>
 
   <style>
@@ -14,16 +14,13 @@
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .grid-1 { grid-template-columns: 1fr; }
     .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
     }
     .muted { opacity: 0.8; }
-    .row { display:flex; gap: 8px; align-items:center; flex-wrap: wrap; }
-    .table-wrap {
-      max-height: 800px;
-      overflow: auto;
-      border-radius: 12px;
-    }
-    .kpi { display:flex; gap: 12px; flex-wrap: wrap; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .table-wrap { max-height: 800px; overflow: auto; border-radius: 12px; }
+    .kpi { display: flex; gap: 12px; flex-wrap: wrap; }
     .kpi calcite-chip { --calcite-chip-padding: 6px 10px; }
   </style>
 </head>
@@ -33,10 +30,9 @@
     <calcite-shell-panel slot="panel-start" width-scale="m">
       <calcite-panel heading="Load Test" description="API Gateway 経由で Velocity へ POST（JSON）">
         <div class="wrap">
+
           <calcite-notice id="notice" kind="info" open closable>
-            <div slot="message">
-              送信先 URL（API Gateway）と UserName を設定して「実行」を押すと、指定頻度で POST を繰り返します。
-            </div>
+            <div slot="message">「実行」を押すと、指定頻度で POST を繰り返します。</div>
           </calcite-notice>
 
           <div class="grid">
@@ -44,32 +40,27 @@
               送信先 URL（API Gateway）
               <calcite-input-text
                 id="endpoint"
-                placeholder="https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/tap"
-                value="https://isf3wq6ep9.execute-api.ap-northeast-1.amazonaws.com/gcfdemo/tap"
-              ></calcite-input-text>
+                value="https://isf3wq6ep9.execute-api.ap-northeast-1.amazonaws.com/gcfdemo/tap">
+              </calcite-input-text>
             </calcite-label>
 
             <calcite-label>
-              UserName（任意）
-              <calcite-input-text
-                id="userName"
-                placeholder="例: DemoUser"
-                value="DemoUser"
-              ></calcite-input-text>
+              UserName（表示用のみ・POSTには使いません）
+              <calcite-input-text id="userName" value="DemoUser"></calcite-input-text>
             </calcite-label>
 
             <calcite-label>
-              間隔（秒）: 何秒ごとに送るか
+              間隔（秒）
               <calcite-input-number id="intervalSec" min="0.05" step="0.05" value="1"></calcite-input-number>
             </calcite-label>
 
             <calcite-label>
-              回数（回/間隔）: 1回の間隔で何回送るか
+              回数（回/間隔）
               <calcite-input-number id="countPerTick" min="1" step="1" value="5"></calcite-input-number>
             </calcite-label>
 
             <calcite-label>
-              総実行時間（秒）: 0 で無制限（停止ボタンで止める）
+              総実行時間（秒）: 0 で無制限
               <calcite-input-number id="totalSec" min="0" step="1" value="10"></calcite-input-number>
             </calcite-label>
 
@@ -82,31 +73,9 @@
           <calcite-divider></calcite-divider>
 
           <div class="grid grid-1">
-            <calcite-label>
-              送信する緯度経度の範囲（日本周辺のランダム生成）
-              <div class="grid">
-                <calcite-label class="muted">
-                  緯度 min
-                  <calcite-input-number id="latMin" step="0.1" value="24"></calcite-input-number>
-                </calcite-label>
-                <calcite-label class="muted">
-                  緯度 max
-                  <calcite-input-number id="latMax" step="0.1" value="46"></calcite-input-number>
-                </calcite-label>
-                <calcite-label class="muted">
-                  経度 min
-                  <calcite-input-number id="lonMin" step="0.1" value="123"></calcite-input-number>
-                </calcite-label>
-                <calcite-label class="muted">
-                  経度 max
-                  <calcite-input-number id="lonMax" step="0.1" value="146"></calcite-input-number>
-                </calcite-label>
-              </div>
-            </calcite-label>
-
             <div class="row">
-              <calcite-button id="startBtn" appearance="solid" icon-start="play">実行</calcite-button>
-              <calcite-button id="stopBtn" appearance="outline" icon-start="pause" disabled>停止</calcite-button>
+              <calcite-button id="startBtn" icon-start="play">実行</calcite-button>
+              <calcite-button id="stopBtn" icon-start="pause" appearance="outline" disabled>停止</calcite-button>
               <calcite-button id="resetCounterBtn" appearance="transparent" icon-start="reset">TapCount リセット</calcite-button>
               <calcite-progress id="progress" type="indeterminate" hidden></calcite-progress>
             </div>
@@ -119,39 +88,29 @@
             </div>
 
             <calcite-label>
-              表示する履歴件数（最新 N 件）
-              <calcite-input-number id="maxRows" min="10" step="10" value="200"></calcite-input-number>
-            </calcite-label>
-
-            <div class="row">
-              <calcite-button id="clearHistoryBtn" appearance="outline" icon-start="trash">履歴クリア</calcite-button>
-            </div>
-
-            <calcite-label>
-              ペイロード例（Velocity に送る JSON）
-              <calcite-text-area id="payloadSample" class="mono" read-only rows="9"></calcite-text-area>
+              ペイロード例
+              <calcite-text-area id="payloadSample" class="mono" read-only rows="8"></calcite-text-area>
             </calcite-label>
 
             <calcite-label>
               実行状況
-              <calcite-text-area id="status" class="mono" read-only rows="9"></calcite-text-area>
+              <calcite-text-area id="status" class="mono" read-only rows="8"></calcite-text-area>
             </calcite-label>
           </div>
-
         </div>
       </calcite-panel>
     </calcite-shell-panel>
 
     <div class="wrap">
       <h2 style="margin-top: 8px;">送信履歴（レスポンスタイム / HTTP ステータス）</h2>
-      <p class="muted">
-        最新の送信結果を上から新しい順に表示します（成功/失敗どちらも記録）。
-      </p>
+      <p class="muted">最新の送信結果を上から新しい順に表示します。</p>
 
       <div class="table-wrap">
         <calcite-table id="historyTable" caption="Request history" bordered>
           <calcite-table-row slot="table-header">
             <calcite-table-header heading="Time"></calcite-table-header>
+            <calcite-table-header heading="Req#"></calcite-table-header>
+            <calcite-table-header heading="UserName"></calcite-table-header>
             <calcite-table-header heading="TapCount"></calcite-table-header>
             <calcite-table-header heading="HTTP"></calcite-table-header>
             <calcite-table-header heading="RTT (ms)"></calcite-table-header>
@@ -167,19 +126,11 @@
     const $ = (id) => document.getElementById(id);
 
     const endpointEl = $("endpoint");
-    const userNameEl = $("userName");
+    const userNameEl = $("userName"); // UIは残す（POSTには使わない）
     const intervalSecEl = $("intervalSec");
     const countPerTickEl = $("countPerTick");
     const totalSecEl = $("totalSec");
     const concurrencyEl = $("concurrency");
-
-    const latMinEl = $("latMin");
-    const latMaxEl = $("latMax");
-    const lonMinEl = $("lonMin");
-    const lonMaxEl = $("lonMax");
-
-    const maxRowsEl = $("maxRows");
-    const clearHistoryBtn = $("clearHistoryBtn");
 
     const payloadSampleEl = $("payloadSample");
     const statusEl = $("status");
@@ -197,27 +148,38 @@
     const kpiP95 = $("kpiP95");
     const kpiOkNg = $("kpiOkNg");
 
+    // 実行制御
     let running = false;
-    let timer = null;
-
     let startedAt = 0;
+    let tickTimer = null;
+
+    // 統計
     let ticks = 0;
     let sent = 0;
     let ok = 0;
     let ng = 0;
+    let requestSeq = 0;
 
-    let tapCount = 0;
+    // TapCount（ユーザー別）
+    const userTapCounts = new Map(); // key: userName -> count
 
+    // 履歴
     const history = [];
     const rttSamples = [];
 
-    const rand = (min, max) => Math.random() * (max - min) + min;
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-    function clampRange(min, max) {
-      const a = Number(min);
-      const b = Number(max);
-      if (Number.isNaN(a) || Number.isNaN(b)) return [0, 0];
-      return a <= b ? [a, b] : [b, a];
+    // UserName候補（名詞）
+    const JAPANESE_NOUNS = [
+      "りんご","みかん","ぶどう","もも","いちご",
+      "おにぎり","うどん","そば","カレー","すし",
+      "ねこ","いぬ","さくら","やま","うみ",
+      "くも","ほし","でんしゃ","はし","まつり",
+      "えんぴつ","ほん","じてんしゃ","かさ"
+    ];
+
+    function randomUserName() {
+      return JAPANESE_NOUNS[randInt(0, JAPANESE_NOUNS.length - 1)];
     }
 
     function uuid() {
@@ -225,79 +187,35 @@
       return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
     }
 
-    function makeRandomJapanPoint() {
-      const [latMin, latMax] = clampRange(latMinEl.value, latMaxEl.value);
-      const [lonMin, lonMax] = clampRange(lonMinEl.value, lonMaxEl.value);
-
-      const Lat = Number(rand(latMin, latMax).toFixed(6));
-      const Lon = Number(rand(lonMin, lonMax).toFixed(6));
+    // 適当に日本付近（必要なら元の lat/lon UI を戻せます）
+    function randomJapanPoint() {
+      const Lat = Number((24 + Math.random() * (46 - 24)).toFixed(6));
+      const Lon = Number((123 + Math.random() * (146 - 123)).toFixed(6));
       return { Lat, Lon };
     }
 
-    function buildVelocityParams() {
-      const userName = (userNameEl.value || "DemoUser").trim() || "DemoUser";
-      const { Lat, Lon } = makeRandomJapanPoint();
+    // preview=true のときは TapCount を進めない（サンプル表示用）
+    function buildPayload({ preview = false } = {}) {
+      const user = randomUserName();
+      const current = userTapCounts.get(user) || 0;
+      const tap = current + 1;
+      if (!preview) userTapCounts.set(user, tap);
 
-      tapCount += 1;
-      const Guid = uuid();
+      const { Lat, Lon } = randomJapanPoint();
 
       return {
-        Guid,
-        UserName: userName,
-        Qnum: 0,
+        Guid: uuid(),
+        UserName: user,
+        Qnum: randInt(1, 5),
         InputDate: Date.now(),
         Lat,
         Lon,
-        TapCount: tapCount
+        TapCount: tap
       };
     }
 
     function updateSample() {
-      const prev = tapCount;
-      const sample = buildVelocityParams();
-      tapCount = prev;
-      payloadSampleEl.value = JSON.stringify(sample, null, 2);
-    }
-
-    function clearRows() {
-      const rows = Array.from(historyTable.querySelectorAll("calcite-table-row"))
-        .filter(r => r.getAttribute("slot") !== "table-header");
-      rows.forEach(r => r.remove());
-    }
-
-    function renderHistory() {
-      clearRows();
-      const maxRows = Math.max(10, Math.floor(Number(maxRowsEl.value || 200)));
-      const slice = history.slice(0, maxRows);
-
-      for (const item of slice) {
-        const row = document.createElement("calcite-table-row");
-
-        const c1 = document.createElement("calcite-table-cell");
-        c1.textContent = item.time;
-
-        const c2 = document.createElement("calcite-table-cell");
-        c2.textContent = String(item.tapCount);
-
-        const c3 = document.createElement("calcite-table-cell");
-        c3.textContent = String(item.status);
-        if (String(item.status).startsWith("2")) c3.style.color = "var(--calcite-color-status-success)";
-        else if (item.status === "ERR") c3.style.color = "var(--calcite-color-status-danger)";
-        else if (String(item.status).startsWith("4") || String(item.status).startsWith("5")) c3.style.color = "var(--calcite-color-status-danger)";
-
-        const c4 = document.createElement("calcite-table-cell");
-        c4.textContent = item.ms != null ? item.ms.toFixed(1) : "-";
-
-        const c5 = document.createElement("calcite-table-cell");
-        c5.classList.add("mono");
-        c5.textContent = item.guid || "-";
-
-        const c6 = document.createElement("calcite-table-cell");
-        c6.textContent = item.note || "";
-
-        row.append(c1, c2, c3, c4, c5, c6);
-        historyTable.appendChild(row);
-      }
+      payloadSampleEl.value = JSON.stringify(buildPayload({ preview: true }), null, 2);
     }
 
     function percentile(arr, p) {
@@ -314,7 +232,6 @@
     function updateKpis() {
       const elapsed = running ? (Date.now() - startedAt) / 1000 : 0;
       const rps = elapsed > 0 ? (sent / elapsed) : 0;
-
       const avg = rttSamples.length ? (rttSamples.reduce((s, v) => s + v, 0) / rttSamples.length) : null;
       const p95 = rttSamples.length ? percentile(rttSamples, 0.95) : null;
 
@@ -326,7 +243,6 @@
 
     function logStatus(extra = "") {
       const elapsed = running ? (Date.now() - startedAt) / 1000 : 0;
-      const rps = elapsed > 0 ? (sent / elapsed).toFixed(2) : "0.00";
       statusEl.value =
 `running: ${running}
 elapsed(s): ${elapsed.toFixed(1)}
@@ -334,41 +250,80 @@ ticks: ${ticks}
 sent: ${sent}
 ok: ${ok}
 ng: ${ng}
-tapCount(current): ${tapCount}
-approx rps: ${rps}
-history(size): ${history.length}
+requestSeq: ${requestSeq}
+users(count): ${userTapCounts.size}
 ${extra ? "\n" + extra : ""}`.trim();
       updateKpis();
     }
 
-    function setUiEnabled(enabled) {
-      endpointEl.disabled = !enabled;
-      userNameEl.disabled = !enabled;
+    function setUiRunning(isRunning) {
+      // 実行・停止ボタン状態（ここが前回抜けていたため「停止が押せない」になっていました）
+      startBtn.disabled = isRunning;
+      stopBtn.disabled = !isRunning;
 
-      intervalSecEl.disabled = !enabled;
-      countPerTickEl.disabled = !enabled;
-      totalSecEl.disabled = !enabled;
-      concurrencyEl.disabled = !enabled;
+      // 入力系（必要なら細かく調整）
+      endpointEl.disabled = isRunning;
+      userNameEl.disabled = isRunning; // 表示用だが一応同期
+      intervalSecEl.disabled = isRunning;
+      countPerTickEl.disabled = isRunning;
+      totalSecEl.disabled = isRunning;
+      concurrencyEl.disabled = isRunning;
 
-      latMinEl.disabled = !enabled;
-      latMaxEl.disabled = !enabled;
-      lonMinEl.disabled = !enabled;
-      lonMaxEl.disabled = !enabled;
+      progressEl.hidden = !isRunning;
+    }
 
-      maxRowsEl.disabled = !enabled;
+    function clearRows() {
+      const rows = Array.from(historyTable.querySelectorAll("calcite-table-row"))
+        .filter(r => r.getAttribute("slot") !== "table-header");
+      rows.forEach(r => r.remove());
+    }
 
-      startBtn.disabled = !enabled;
-      stopBtn.disabled = enabled;
-      resetCounterBtn.disabled = !enabled;
-      clearHistoryBtn.disabled = !enabled;
+    function renderHistory() {
+      clearRows();
+      const maxRows = 200; // 必要ならUIで変更に戻せます
+      const slice = history.slice(0, maxRows);
 
-      progressEl.hidden = enabled;
+      for (const item of slice) {
+        const row = document.createElement("calcite-table-row");
+
+        const cTime = document.createElement("calcite-table-cell");
+        cTime.textContent = item.time;
+
+        const cReq = document.createElement("calcite-table-cell");
+        cReq.textContent = String(item.reqNo);
+
+        const cUser = document.createElement("calcite-table-cell");
+        cUser.textContent = item.user;
+
+        const cTap = document.createElement("calcite-table-cell");
+        cTap.textContent = String(item.tapCount);
+
+        const cHttp = document.createElement("calcite-table-cell");
+        cHttp.textContent = String(item.status);
+        if (String(item.status).startsWith("2")) cHttp.style.color = "var(--calcite-color-status-success)";
+        else if (item.status === "ERR") cHttp.style.color = "var(--calcite-color-status-danger)";
+        else if (String(item.status).startsWith("4") || String(item.status).startsWith("5"))
+          cHttp.style.color = "var(--calcite-color-status-danger)";
+
+        const cMs = document.createElement("calcite-table-cell");
+        cMs.textContent = item.ms != null ? item.ms.toFixed(1) : "-";
+
+        const cGuid = document.createElement("calcite-table-cell");
+        cGuid.classList.add("mono");
+        cGuid.textContent = item.guid || "-";
+
+        const cNote = document.createElement("calcite-table-cell");
+        cNote.textContent = item.note || "";
+
+        row.append(cTime, cReq, cUser, cTap, cHttp, cMs, cGuid, cNote);
+        historyTable.appendChild(row);
+      }
     }
 
     function createSemaphore(limit) {
       let active = 0;
       const queue = [];
-      const acquire = () => new Promise((resolve) => {
+      const acquire = () => new Promise(resolve => {
         const tryAcquire = () => {
           if (active < limit) {
             active++;
@@ -377,7 +332,9 @@ ${extra ? "\n" + extra : ""}`.trim();
               const next = queue.shift();
               if (next) next();
             });
-          } else queue.push(tryAcquire);
+          } else {
+            queue.push(tryAcquire);
+          }
         };
         tryAcquire();
       });
@@ -394,15 +351,12 @@ ${extra ? "\n" + extra : ""}`.trim();
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-
         status = res.status;
-
         if (!res.ok) {
           const text = await res.text().catch(() => "");
           note = (text || "").slice(0, 120);
-          throw new Error(`HTTP ${res.status} ${res.statusText} ${text}`);
+          throw new Error(`HTTP ${res.status} ${res.statusText}`);
         }
-
         const ms = performance.now() - t0;
         return { ok: true, status, ms, note };
       } catch (e) {
@@ -412,7 +366,7 @@ ${extra ? "\n" + extra : ""}`.trim();
       }
     }
 
-    function addHistoryEntry(entry) {
+    function addHistory(entry) {
       history.unshift(entry);
       const maxKeep = 5000;
       if (history.length > maxKeep) history.length = maxKeep;
@@ -423,49 +377,52 @@ ${extra ? "\n" + extra : ""}`.trim();
       renderHistory();
     }
 
-    async function runTick() {
+    async function runTickOnce() {
       const url = endpointEl.value.trim();
       if (!url) {
         noticeEl.kind = "danger";
         noticeEl.open = true;
         noticeEl.innerHTML = `<div slot="message">送信先 URL（API Gateway）を入力してください。</div>`;
-        stop();
+        stop("Endpoint empty");
         return;
       }
 
-      const countPerTick = Math.max(1, Math.floor(Number(countPerTickEl.value || 1)));
-      const concurrency = Math.max(1, Math.floor(Number(concurrencyEl.value || 10)));
-
+      // ★総実行時間の判定（前回抜けていたため止まらない）
       const totalSec = Math.max(0, Math.floor(Number(totalSecEl.value || 0)));
       const elapsed = (Date.now() - startedAt) / 1000;
       if (totalSec > 0 && elapsed >= totalSec) {
-        logStatus("Reached totalSec. Stopping...");
-        stop();
+        stop("Reached totalSec");
         return;
       }
 
       ticks++;
 
+      const countPerTick = Math.max(1, Math.floor(Number(countPerTickEl.value || 1)));
+      const concurrency = Math.max(1, Math.floor(Number(concurrencyEl.value || 10)));
       const sem = createSemaphore(concurrency);
+
       const tasks = Array.from({ length: countPerTick }, async () => {
         const release = await sem.acquire();
         try {
-          const params = buildVelocityParams();
+          const reqNo = ++requestSeq;
+          const payload = buildPayload();
           sent++;
 
-          const result = await postJson(url, params);
+          const result = await postJson(url, payload);
 
           const entry = {
             time: new Date().toLocaleTimeString("ja-JP", { hour12: false }),
-            tapCount: params.TapCount,
+            reqNo,
+            user: payload.UserName,
+            tapCount: payload.TapCount,
             status: result.status,
             ms: result.ms,
-            guid: params.Guid,
+            guid: payload.Guid,
             note: result.ok ? "" : result.note
           };
 
           if (result.ok) ok++; else ng++;
-          addHistoryEntry(entry);
+          addHistory(entry);
         } finally {
           release();
         }
@@ -475,15 +432,16 @@ ${extra ? "\n" + extra : ""}`.trim();
       logStatus();
     }
 
-    function scheduleNext() {
+    function scheduleNextTick() {
       if (!running) return;
+
       const intervalMs = Math.max(50, Number(intervalSecEl.value || 1) * 1000);
 
-      timer = setTimeout(async () => {
+      tickTimer = setTimeout(async () => {
         try {
-          await runTick();
+          await runTickOnce();
         } finally {
-          scheduleNext();
+          scheduleNextTick();
         }
       }, intervalMs);
     }
@@ -497,58 +455,54 @@ ${extra ? "\n" + extra : ""}`.trim();
       sent = 0;
       ok = 0;
       ng = 0;
+      requestSeq = 0;
       rttSamples.length = 0;
+      history.length = 0;
+      userTapCounts.clear();
 
       noticeEl.kind = "info";
       noticeEl.open = true;
       noticeEl.innerHTML = `<div slot="message">実行中です（停止を押すまで継続。総実行時間が 0 以外なら自動停止）。</div>`;
 
-      setUiEnabled(false);
+      setUiRunning(true);
       updateSample();
+      renderHistory();
       logStatus("Started.");
 
       (async () => {
-        await runTick();
-        scheduleNext();
+        await runTickOnce();    // 即時1回
+        scheduleNextTick();     // 次回以降をスケジュール
       })();
     }
 
-    function stop() {
+    function stop(reason = "Stopped") {
+      if (!running) return;
+
       running = false;
-      if (timer) clearTimeout(timer);
-      timer = null;
+      if (tickTimer) clearTimeout(tickTimer);
+      tickTimer = null;
 
       noticeEl.kind = "success";
       noticeEl.open = true;
-      noticeEl.innerHTML = `<div slot="message">停止しました。sent=${sent}, ok=${ok}, ng=${ng}, TapCount=${tapCount}</div>`;
+      noticeEl.innerHTML = `<div slot="message">停止しました。reason=${reason} / sent=${sent}, ok=${ok}, ng=${ng}, users=${userTapCounts.size}</div>`;
 
-      setUiEnabled(true);
+      setUiRunning(false);
       updateSample();
       logStatus("Stopped.");
     }
 
     function resetTapCount() {
-      tapCount = 0;
+      userTapCounts.clear();
       updateSample();
-      logStatus("TapCount reset to 0.");
-    }
-
-    function clearHistory() {
-      history.length = 0;
-      rttSamples.length = 0;
-      renderHistory();
-      updateKpis();
-      logStatus("History cleared.");
+      logStatus("TapCount reset: cleared per-user counters.");
     }
 
     startBtn.addEventListener("click", start);
-    stopBtn.addEventListener("click", stop);
+    stopBtn.addEventListener("click", () => stop("User clicked stop"));
     resetCounterBtn.addEventListener("click", resetTapCount);
-    clearHistoryBtn.addEventListener("click", clearHistory);
-
-    maxRowsEl.addEventListener("calciteInputNumberChange", () => renderHistory());
 
     // initial
+    setUiRunning(false);
     updateSample();
     renderHistory();
     updateKpis();

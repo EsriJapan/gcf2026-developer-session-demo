@@ -21,6 +21,23 @@
       padding: 0;
     }
 
+    #tapCountDiv {
+      width: 250px;
+      height: 200px;
+      padding: 5px;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-content: center;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #tapCountSpan {
+      font-size: 70px;
+    }
+
     #shellPanelBottom {
       /* height: 300px; */
       overflow: hidden;
@@ -130,6 +147,10 @@
     <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap">
       <arcgis-zoom slot="top-left"></arcgis-zoom>
       <arcgis-home slot="top-left"></arcgis-home>
+      <div id="tapCountDiv" slot="bottom-left">
+        <span id="tapCountSpan">0</span>
+        <span>タップ回数</span>
+      </div>
       <calcite-button id="toggleChartBtn" slot="bottom-right" icon-start="graph-bar" kind="neutral"
         appearance="outline-fill"></calcite-button>
     </arcgis-map>
@@ -145,6 +166,9 @@
     // 表示用（任意）
     const chartStatus = document.getElementById("chartStatus");
 
+    // ★追加：タップ地点フィーチャ数表示
+    const tapCountSpan = document.getElementById("tapCountSpan");
+
     // reactiveUtils（今回は未使用だが残してOK）
     const [reactiveUtils] = await $arcgis.import([
       "@arcgis/core/core/reactiveUtils.js"
@@ -153,11 +177,11 @@
     // -----------------------------
     // 設定値
     // -----------------------------
-    const TOP_N = 10;         // ★上位10名
+    const TOP_N = 10;         // 上位10名
     const POLL_MS = 1000;     // 更新間隔（ms）
     const QUERY_NUM = 800;    // 取得件数（必要に応じて調整）
 
-    const Q_KEYS = ["q1", "q2", "q3", "q4", "q5"]; // ★allのときに合算する対象
+    const Q_KEYS = ["q1", "q2", "q3", "q4", "q5"]; // allのときに合算する対象
 
     // -----------------------------
     // 1) LayerView の取得（Promise.all で待つ）
@@ -166,11 +190,11 @@
 
     const titleToKey = new Map([
       ["タップ地点", "all"],
-      ["Q1", "q1"],
-      ["Q2", "q2"],
-      ["Q3", "q3"],
-      ["Q4", "q4"],
-      ["Q5", "q5"],
+      ["Q1 ポイント", "q1"],
+      ["Q2 ポイント", "q2"],
+      ["Q3 ポイント", "q3"],
+      ["Q4 ポイント", "q4"],
+      ["Q5 ポイント", "q5"],
     ]);
 
     const layerViewReadyPromises = [];
@@ -198,7 +222,7 @@
       data: {
         labels: [],
         datasets: [{
-          label: "TapCount MAX 上位10 (UserName)",
+          label: "タップ回数上位 10 ユーザー",
           data: [],
           backgroundColor: [],
           borderWidth: 0
@@ -229,7 +253,7 @@
     // 3) UserName → TapCount MAX を「レイヤーごと」に保持
     // -----------------------------
     const statsByLayer = {
-      all: new Map(), // ★allは q1〜q5 の合算結果を入れる
+      all: new Map(), // allは q1〜q5 の合算結果を入れる
       q1: new Map(),
       q2: new Map(),
       q3: new Map(),
@@ -260,18 +284,18 @@
       }
     }
 
-    // ★q1〜q5 の max Map から all(合算) Map を再計算
+    // q1〜q5 の max Map から all(合算) Map を再計算
     function recomputeAllFromQs() {
       const allMap = new Map();
 
-      // まず全ユーザー集合を作る
+      // 全ユーザー集合
       const users = new Set();
       for (const k of Q_KEYS) {
         const m = statsByLayer[k];
         for (const u of m.keys()) users.add(u);
       }
 
-      // 合算
+      // 合算（ユーザーごとに q1〜q5 の max を足す）
       for (const u of users) {
         let sum = 0;
         for (const k of Q_KEYS) {
@@ -323,6 +347,43 @@
     }
 
     // -----------------------------
+    // ★追加：タップ地点（all）のフィーチャ総数を tapCountSpan に表示
+    // -----------------------------
+    let tapCountRunning = false;
+    let lastTapFeatureCount = null;
+
+    async function updateTapFeatureCount() {
+      if (!tapCountSpan) return;
+      const lv = layerViewsObj.all;
+      if (!lv) return;
+      if (tapCountRunning) return;
+      tapCountRunning = true;
+
+      try {
+        let count = null;
+
+        // 可能なら queryFeatureCount（軽量）
+        if (typeof lv.queryFeatureCount === "function") {
+          count = await lv.queryFeatureCount({ where: "1=1" });
+        }
+        // フォールバック：クライアントに保持している graphics の件数
+        else if (lv.graphics && typeof lv.graphics.length === "number") {
+          count = lv.graphics.length;
+        }
+
+        if (count != null && count !== lastTapFeatureCount) {
+          lastTapFeatureCount = count;
+          tapCountSpan.textContent = String(count);
+        }
+      } catch (_) {
+        // 失敗しても表示は維持（必要なら "—" にしてもOK）
+        // tapCountSpan.textContent = "—";
+      } finally {
+        tapCountRunning = false;
+      }
+    }
+
+    // -----------------------------
     // 4) 初期化：切替時に LayerView の保持データ（またはクエリ）から max を作る
     //    - all の場合は q1〜q5 を初期化してから合算する
     // -----------------------------
@@ -364,17 +425,20 @@
     async function activateLayer(key) {
       activeKey = key;
 
+      // 切替時は必ず再描画させる
+      lastSignatureByKey[key] = "";
+
       await initStatsFromLayerView(key);
 
       // 表示
       if (activeKey === "all") {
         recomputeAllFromQs();
-        chart.data.datasets[0].label = "q1〜q5 の TapCount MAX 合計 上位10 (UserName)";
-        chart.options.plugins.title.text = "上位 10 ユーザー（q1〜q5 の TapCount MAX 合計 / 起動以降）";
+        chart.data.datasets[0].label = "Q1 ~ Q5 のタップ回数 合計";
+        chart.options.plugins.title.text = "Q1 ~ Q5 のタップ回数 合計 上位 10 ユーザー";
         renderTopNFromMap(statsByLayer.all, "all");
       } else {
-        chart.data.datasets[0].label = "TapCount MAX 上位10 (UserName)";
-        chart.options.plugins.title.text = `上位 10 ユーザー（${activeKey.toUpperCase()} の TapCount MAX / 起動以降）`;
+        chart.data.datasets[0].label = "タップ回数";
+        chart.options.plugins.title.text = `上位 10 ユーザー（${activeKey.toUpperCase()}）`;
         renderTopNFromMap(statsByLayer[activeKey], activeKey);
       }
 
@@ -424,7 +488,7 @@
         let totalFetched = 0;
 
         if (activeKey === "all") {
-          // ★q1〜q5 を並列クエリして更新
+          // q1〜q5 を並列クエリして更新
           const results = await Promise.all(Q_KEYS.map(k => queryAndIngest(k)));
           totalFetched = results.reduce((a, b) => a + b, 0);
 
@@ -440,6 +504,10 @@
           const keyLabel = (activeKey === "all") ? "タップ地点(all=合算)" : activeKey.toUpperCase();
           chartStatus.textContent = `更新: ${new Date().toLocaleTimeString()}  (${keyLabel}, 取得:${totalFetched})`;
         }
+
+        // ★追加：タップ地点のフィーチャ総数も更新（awaitしない＝描画をブロックしない）
+        updateTapFeatureCount();
+
       } catch (e) {
         if (chartStatus) chartStatus.textContent = "更新エラー";
         // console.debug(e);
@@ -463,6 +531,10 @@
     // 7) 初回起動
     // -----------------------------
     await activateLayer("all");
+
+    // ★追加：初期値としてタップ地点フィーチャ数を1回表示
+    updateTapFeatureCount();
+
     startPolling();
 
     // -----------------------------
@@ -476,6 +548,7 @@
       });
     }
   </script>
+
 
 
 </body>
