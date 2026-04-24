@@ -51,8 +51,8 @@
 
     <calcite-navigation slot="header">
       <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答入力)"></calcite-navigation-logo>
+      <calcite-navigation-user slot="user"></calcite-navigation-user>
     </calcite-navigation>
-
     
     <calcite-dialog id="userDialog" heading="ユーザー名を入力してください" scale="l" modal placement="center" outside-close-disabled escape-disabled close-disabled>
       <calcite-label>
@@ -166,6 +166,9 @@
       userNameNotice.style.display = "none";
       userNameInput.status = "idle"; // もしくは "valid" でもOK
 
+      const navigationUser = document.querySelector("calcite-navigation-user");
+      navigationUser.fullName = userName;
+
       // 閉じる
       userDialog.open = false;
 
@@ -186,8 +189,13 @@
     let qNum = 0;
     const calciteDropdown = document.querySelector("calcite-dropdown");
     const calciteDropdownItems = document.querySelectorAll("calcite-dropdown-item");
+    const dropdownBtn = document.getElementById("dropdownBtn");
 
     calciteDropdown.addEventListener("calciteDropdownSelect", (evt) => {
+      
+      // タップ数のカウントをリセット
+      tapCount = 0;
+      tapCountSpan.innerText = tapCount;
 
       calciteDropdownItems.forEach(item => {
         console.log(item);
@@ -199,6 +207,7 @@
             if(parentNode.children[i] == item){
 
               qNum = i + 1;
+              dropdownBtn.innerText = "問 " + qNum;
 
             }
           }
@@ -206,18 +215,6 @@
       });
 
     });
-
-    // const calciteRadioGroup = document.querySelector("calcite-radio-button-group");
-    // const calciteRadioBtns = document.querySelectorAll("calcite-radio-button");
-
-    // calciteRadioGroup.addEventListener("calciteRadioButtonGroupChange", (evt) => {
-
-    //   calciteRadioBtns.forEach(radioBtn => {
-    //     if(radioBtn.checked === true){
-    //       qNum = radioBtn.value
-    //     }
-    //   });
-    // });
 
     // -----
 

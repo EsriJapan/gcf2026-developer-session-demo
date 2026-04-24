@@ -130,7 +130,8 @@
     <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap">
       <arcgis-zoom slot="top-left"></arcgis-zoom>
       <arcgis-home slot="top-left"></arcgis-home>
-      <calcite-button id="toggleChartBtn" slot="bottom-right" icon-start="graph-bar" kind="neutral" appearance="outline-fill"></calcite-button>
+      <calcite-button id="toggleChartBtn" slot="bottom-right" icon-start="graph-bar" kind="neutral"
+        appearance="outline-fill"></calcite-button>
     </arcgis-map>
 
   </calcite-shell>
@@ -144,10 +145,19 @@
     // 表示用（任意）
     const chartStatus = document.getElementById("chartStatus");
 
-    // reactiveUtils（使わなくてもOKだが、保険で残しておく）
+    // reactiveUtils（今回は未使用だが残してOK）
     const [reactiveUtils] = await $arcgis.import([
       "@arcgis/core/core/reactiveUtils.js"
     ]);
+
+    // -----------------------------
+    // 設定値
+    // -----------------------------
+    const TOP_N = 10;         // ★上位10名
+    const POLL_MS = 1000;     // 更新間隔（ms）
+    const QUERY_NUM = 800;    // 取得件数（必要に応じて調整）
+
+    const Q_KEYS = ["q1", "q2", "q3", "q4", "q5"]; // ★allのときに合算する対象
 
     // -----------------------------
     // 1) LayerView の取得（Promise.all で待つ）
@@ -188,9 +198,9 @@
       data: {
         labels: [],
         datasets: [{
-          label: "TapCount MAX 上位5 (UserName)",
+          label: "TapCount MAX 上位10 (UserName)",
           data: [],
-          backgroundColor: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#bab0ab"],
+          backgroundColor: [],
           borderWidth: 0
         }]
       },
@@ -200,7 +210,7 @@
         animation: false,
         plugins: {
           legend: { display: true },
-          title: { display: true, text: "上位 5 ユーザー（TapCount MAX / アプリ起動以降）" }
+          title: { display: true, text: "上位 10 ユーザー（TapCount MAX / アプリ起動以降）" }
         },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
       }
@@ -211,6 +221,7 @@
     function setChartNoData(message = "受信データなし") {
       chart.data.labels = [message];
       chart.data.datasets[0].data = [0];
+      chart.data.datasets[0].backgroundColor = ["#bab0ab"];
       chart.update("none");
     }
 
@@ -218,7 +229,7 @@
     // 3) UserName → TapCount MAX を「レイヤーごと」に保持
     // -----------------------------
     const statsByLayer = {
-      all: new Map(),
+      all: new Map(), // ★allは q1〜q5 の合算結果を入れる
       q1: new Map(),
       q2: new Map(),
       q3: new Map(),
@@ -229,7 +240,6 @@
     function ingestGraphicsMax(map, graphics) {
       if (!graphics) return;
 
-      // graphics が Collection / Array / 単一 どれでも対応
       const arr = Array.isArray(graphics)
         ? graphics
         : (graphics?.toArray ? graphics.toArray() : [graphics]);
@@ -240,7 +250,6 @@
 
         const name = a.UserName;
         const tap = a.TapCount;
-
         if (name == null || tap == null) continue;
 
         const user = String(name);
@@ -251,54 +260,93 @@
       }
     }
 
-    // チャートの不要な再描画を避けるため、前回の top5 を記録
-    let lastSignature = "";
+    // ★q1〜q5 の max Map から all(合算) Map を再計算
+    function recomputeAllFromQs() {
+      const allMap = new Map();
 
-    function renderTop5FromMap(map) {
+      // まず全ユーザー集合を作る
+      const users = new Set();
+      for (const k of Q_KEYS) {
+        const m = statsByLayer[k];
+        for (const u of m.keys()) users.add(u);
+      }
+
+      // 合算
+      for (const u of users) {
+        let sum = 0;
+        for (const k of Q_KEYS) {
+          sum += (statsByLayer[k].get(u) || 0);
+        }
+        allMap.set(u, sum);
+      }
+
+      statsByLayer.all = allMap;
+    }
+
+    // カラーを必要数作る（10本でも見やすいように）
+    function makeColors(n) {
+      const base = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+        "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"];
+      const colors = [];
+      for (let i = 0; i < n; i++) colors.push(base[i % base.length]);
+      return colors;
+    }
+
+    // レイヤーごとに「前回の topN」を記録（切替時の誤スキップ防止）
+    const lastSignatureByKey = { all: "", q1: "", q2: "", q3: "", q4: "", q5: "" };
+
+    function renderTopNFromMap(map, keyForSignature) {
       if (!map || map.size === 0) {
         setChartNoData("受信データなし");
-        lastSignature = "NODATA";
+        lastSignatureByKey[keyForSignature] = "NODATA";
         return;
       }
 
       const top = [...map.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+        .slice(0, TOP_N);
 
       if (top.length === 0) {
         setChartNoData("受信データなし");
-        lastSignature = "NODATA";
+        lastSignatureByKey[keyForSignature] = "NODATA";
         return;
       }
 
-      // 変化検知（同じ内容なら update しない）
       const signature = top.map(([u, v]) => `${u}:${v}`).join("|");
-      if (signature === lastSignature) return;
-      lastSignature = signature;
+      if (signature === lastSignatureByKey[keyForSignature]) return;
+      lastSignatureByKey[keyForSignature] = signature;
 
       chart.data.labels = top.map(([user]) => user);
-      chart.data.datasets[0].data = top.map(([, maxTap]) => maxTap);
+      chart.data.datasets[0].data = top.map(([, val]) => val);
+      chart.data.datasets[0].backgroundColor = makeColors(top.length);
       chart.update("none");
     }
 
     // -----------------------------
-    // 4) 初期化：切替時に LayerView が保持するデータから MAX を作る
-    //    ※ map が空のときだけ初回ロード（＝アプリ起動以降の範囲）
+    // 4) 初期化：切替時に LayerView の保持データ（またはクエリ）から max を作る
+    //    - all の場合は q1〜q5 を初期化してから合算する
     // -----------------------------
     async function initStatsFromLayerView(key) {
+      if (key === "all") {
+        // q1〜q5 を初期化して合算
+        for (const qk of Q_KEYS) {
+          await initStatsFromLayerView(qk);
+        }
+        recomputeAllFromQs();
+        return;
+      }
+
       const lv = layerViewsObj[key];
       if (!lv) return;
 
       const map = statsByLayer[key];
       if (map.size > 0) return;
 
-      // lv.graphics が取れるなら使う（速い）
       if (lv.graphics) {
         ingestGraphicsMax(map, lv.graphics);
         return;
       }
 
-      // フォールバック：クエリ
       const fs = await lv.queryFeatures({
         where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
         outFields: ["UserName", "TapCount"],
@@ -316,13 +364,21 @@
     async function activateLayer(key) {
       activeKey = key;
 
-      // 初期化（初回のみ）
       await initStatsFromLayerView(key);
 
-      // 切替時は即描画
-      renderTop5FromMap(statsByLayer[key]);
+      // 表示
+      if (activeKey === "all") {
+        recomputeAllFromQs();
+        chart.data.datasets[0].label = "q1〜q5 の TapCount MAX 合計 上位10 (UserName)";
+        chart.options.plugins.title.text = "上位 10 ユーザー（q1〜q5 の TapCount MAX 合計 / 起動以降）";
+        renderTopNFromMap(statsByLayer.all, "all");
+      } else {
+        chart.data.datasets[0].label = "TapCount MAX 上位10 (UserName)";
+        chart.options.plugins.title.text = `上位 10 ユーザー（${activeKey.toUpperCase()} の TapCount MAX / 起動以降）`;
+        renderTopNFromMap(statsByLayer[activeKey], activeKey);
+      }
 
-      // 切替直後に、ポーリングを待たず即1回クエリ（体感向上）
+      // 切替直後に即1回（体感向上）
       pollActiveLayerOnce();
     }
 
@@ -334,51 +390,57 @@
     }
 
     // -----------------------------
-    // 6) 追加：定期ポーリング（setInterval）でリアルタイム風に更新
+    // 6) 定期ポーリング（setInterval）で更新
+    //    - all の場合は q1〜q5 をクエリ→max更新→合算→描画
+    //    - q1..q5 の場合は単体クエリ→max更新→描画
     // -----------------------------
-    const POLL_MS = 1000;   // 例: 500〜2000（短いほどリアルタイムだが負荷増）
-    const QUERY_NUM = 800;  // 例: 300〜2000（多いほど上位の取りこぼしが減るが負荷増）
-
     let pollTimer = null;
     let pollRunning = false;
 
+    async function queryAndIngest(key) {
+      const lv = layerViewsObj[key];
+      if (!lv) return 0;
+
+      const fs = await lv.queryFeatures({
+        where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
+        outFields: ["UserName", "TapCount"],
+        returnGeometry: false,
+        orderByFields: ["TapCount DESC"],
+        num: QUERY_NUM
+      });
+
+      const feats = fs?.features ?? [];
+      if (feats.length) {
+        ingestGraphicsMax(statsByLayer[key], feats);
+      }
+      return feats.length;
+    }
+
     async function pollActiveLayerOnce() {
-      // 多重実行防止（前のクエリが終わってないのに次が来たらスキップ）
       if (pollRunning) return;
       pollRunning = true;
 
       try {
-        const lv = layerViewsObj[activeKey];
-        if (!lv) return;
+        let totalFetched = 0;
 
-        // ビュー側のキャッシュを対象にクエリ（TapCount DESCでMAX拾いやすく）
-        const fs = await lv.queryFeatures({
-          where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
-          outFields: ["UserName", "TapCount"],
-          returnGeometry: false,
-          orderByFields: ["TapCount DESC"],
-          num: QUERY_NUM
-        });
+        if (activeKey === "all") {
+          // ★q1〜q5 を並列クエリして更新
+          const results = await Promise.all(Q_KEYS.map(k => queryAndIngest(k)));
+          totalFetched = results.reduce((a, b) => a + b, 0);
 
-        const feats = fs?.features ?? [];
-        if (!feats.length) {
-          setChartNoData("受信データなし");
-          if (chartStatus) chartStatus.textContent = "受信なし";
-          return;
+          // 合算して描画
+          recomputeAllFromQs();
+          renderTopNFromMap(statsByLayer.all, "all");
+        } else {
+          totalFetched = await queryAndIngest(activeKey);
+          renderTopNFromMap(statsByLayer[activeKey], activeKey);
         }
-
-        // MAX 更新（既存 Map に max を入れる）
-        const map = statsByLayer[activeKey];
-        ingestGraphicsMax(map, feats);
-
-        // チャート更新（変更があったときだけ update）
-        renderTop5FromMap(map);
 
         if (chartStatus) {
-          chartStatus.textContent = `更新: ${new Date().toLocaleTimeString()}  (取得:${Math.min(feats.length, QUERY_NUM)})`;
+          const keyLabel = (activeKey === "all") ? "タップ地点(all=合算)" : activeKey.toUpperCase();
+          chartStatus.textContent = `更新: ${new Date().toLocaleTimeString()}  (${keyLabel}, 取得:${totalFetched})`;
         }
       } catch (e) {
-        // 失敗しても落とさない（通信/権限など一時エラー対策）
         if (chartStatus) chartStatus.textContent = "更新エラー";
         // console.debug(e);
       } finally {
@@ -389,7 +451,7 @@
     function startPolling() {
       stopPolling();
       pollTimer = setInterval(pollActiveLayerOnce, POLL_MS);
-      pollActiveLayerOnce(); // 開始直後に1回
+      pollActiveLayerOnce();
     }
 
     function stopPolling() {
@@ -403,13 +465,16 @@
     await activateLayer("all");
     startPolling();
 
-
-    // チャートの表示切り替え
+    // -----------------------------
+    // 8) チャートの表示切り替え
+    // -----------------------------
     const toggleChartBtn = document.getElementById("toggleChartBtn");
-    toggleChartBtn.addEventListener("click", () => {
-      shellPanelBottom.toggleAttribute("collapsed");
-    });
-
+    if (toggleChartBtn) {
+      toggleChartBtn.addEventListener("click", () => {
+        shellPanelBottom.toggleAttribute("collapsed");
+        chart.resize();
+      });
+    }
   </script>
 
 
