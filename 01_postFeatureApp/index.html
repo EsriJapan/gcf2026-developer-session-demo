@@ -22,6 +22,11 @@
       height: 100%;
     }
 
+    #usernameDiv {
+      margin-right: 5px;
+      font-weight: bold;
+    }
+
     #tapCountDiv {
       width: 150px;
       height: 150px;
@@ -50,11 +55,12 @@
   <calcite-shell>
 
     <calcite-navigation slot="header">
-      <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答入力)"></calcite-navigation-logo>
-      <calcite-navigation-user slot="user"></calcite-navigation-user>
+      <calcite-navigation-logo slot="logo" heading="Developer Session デモ (回答入力)" scale="s"></calcite-navigation-logo>
+      <div id="usernameDiv" slot="content-end"></div>
+      <!-- <calcite-navigation-user slot="user" scale="s"></calcite-navigation-user> -->
     </calcite-navigation>
     
-    <calcite-dialog id="userDialog" heading="ユーザー名を入力してください" scale="l" modal placement="center" outside-close-disabled escape-disabled close-disabled>
+    <calcite-dialog id="userDialog" heading="ユーザー名を入力してください" scale="s" modal placement="center" outside-close-disabled escape-disabled close-disabled>
       <calcite-label>
         ユーザー名：
         <calcite-input id="userNameInput" placeholder="ゲスト" clearable></calcite-input>
@@ -166,8 +172,8 @@
       userNameNotice.style.display = "none";
       userNameInput.status = "idle"; // もしくは "valid" でもOK
 
-      const navigationUser = document.querySelector("calcite-navigation-user");
-      navigationUser.fullName = userName;
+      const usernameDiv = document.getElementById("usernameDiv");
+      usernameDiv.innerText = userName;
 
       // 閉じる
       userDialog.open = false;
