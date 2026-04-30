@@ -204,13 +204,13 @@
       const { Lat, Lon } = randomJapanPoint();
 
       return {
-        Guid: uuid(),
-        UserName: user,
-        Qnum: randInt(1, 5),
-        InputDate: Date.now(),
-        Lat,
-        Lon,
-        TapCount: tap
+        guid: uuid(),
+        username: user,
+        qnum: randInt(1, 5),
+        inputdate: Date.now(),
+        lat,
+        lon,
+        tapcount: tap
       };
     }
 

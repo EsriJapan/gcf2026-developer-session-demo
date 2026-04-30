@@ -21,7 +21,7 @@
       padding: 0;
     }
 
-    #tapCountDiv {
+    #tapcountDiv {
       width: 250px;
       height: 200px;
       padding: 5px;
@@ -34,7 +34,7 @@
       font-weight: bold;
     }
 
-    #tapCountSpan {
+    #tapcountSpan {
       font-size: 70px;
     }
 
@@ -147,8 +147,8 @@
     <arcgis-map item-id="89b3415cd771482d9b29d2a85a61a990" id="arcgisMap">
       <arcgis-zoom slot="top-left"></arcgis-zoom>
       <arcgis-home slot="top-left"></arcgis-home>
-      <div id="tapCountDiv" slot="bottom-left">
-        <span id="tapCountSpan">0</span>
+      <div id="tapcountDiv" slot="bottom-left">
+        <span id="tapcountSpan">0</span>
         <span>タップ回数</span>
       </div>
       <calcite-button id="toggleChartBtn" slot="bottom-right" icon-start="graph-bar" kind="neutral"
@@ -167,7 +167,7 @@
     const chartStatus = document.getElementById("chartStatus");
 
     // ★追加：タップ地点フィーチャ数表示
-    const tapCountSpan = document.getElementById("tapCountSpan");
+    const tapcountSpan = document.getElementById("tapcountSpan");
 
     // reactiveUtils（今回は未使用だが残してOK）
     const [reactiveUtils] = await $arcgis.import([
@@ -234,7 +234,7 @@
         animation: false,
         plugins: {
           legend: { display: true },
-          title: { display: true, text: "上位 10 ユーザー（TapCount MAX / アプリ起動以降）" }
+          title: { display: true, text: "上位 10 ユーザー（tapcount MAX / アプリ起動以降）" }
         },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
       }
@@ -250,7 +250,7 @@
     }
 
     // -----------------------------
-    // 3) UserName → TapCount MAX を「レイヤーごと」に保持
+    // 3) username → tapcount MAX を「レイヤーごと」に保持
     // -----------------------------
     const statsByLayer = {
       all: new Map(), // allは q1〜q5 の合算結果を入れる
@@ -272,8 +272,8 @@
         const a = g?.attributes;
         if (!a) continue;
 
-        const name = a.UserName;
-        const tap = a.TapCount;
+        const name = a.username;
+        const tap = a.tapcount;
         if (name == null || tap == null) continue;
 
         const user = String(name);
@@ -347,17 +347,17 @@
     }
 
     // -----------------------------
-    // ★追加：タップ地点（all）のフィーチャ総数を tapCountSpan に表示
+    // ★追加：タップ地点（all）のフィーチャ総数を tapcountSpan に表示
     // -----------------------------
-    let tapCountRunning = false;
+    let tapcountRunning = false;
     let lastTapFeatureCount = null;
 
     async function updateTapFeatureCount() {
-      if (!tapCountSpan) return;
+      if (!tapcountSpan) return;
       const lv = layerViewsObj.all;
       if (!lv) return;
-      if (tapCountRunning) return;
-      tapCountRunning = true;
+      if (tapcountRunning) return;
+      tapcountRunning = true;
 
       try {
         let count = null;
@@ -373,13 +373,13 @@
 
         if (count != null && count !== lastTapFeatureCount) {
           lastTapFeatureCount = count;
-          tapCountSpan.textContent = String(count);
+          tapcountSpan.textContent = String(count);
         }
       } catch (_) {
         // 失敗しても表示は維持（必要なら "—" にしてもOK）
-        // tapCountSpan.textContent = "—";
+        // tapcountSpan.textContent = "—";
       } finally {
-        tapCountRunning = false;
+        tapcountRunning = false;
       }
     }
 
@@ -409,8 +409,8 @@
       }
 
       const fs = await lv.queryFeatures({
-        where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
-        outFields: ["UserName", "TapCount"],
+        where: "username IS NOT NULL AND tapcount IS NOT NULL",
+        outFields: ["username", "tapcount"],
         returnGeometry: false,
         num: 2000
       });
@@ -466,10 +466,10 @@
       if (!lv) return 0;
 
       const fs = await lv.queryFeatures({
-        where: "UserName IS NOT NULL AND TapCount IS NOT NULL",
-        outFields: ["UserName", "TapCount"],
+        where: "username IS NOT NULL AND tapcount IS NOT NULL",
+        outFields: ["username", "tapcount"],
         returnGeometry: false,
-        orderByFields: ["TapCount DESC"],
+        orderByFields: ["tapcount DESC"],
         num: QUERY_NUM
       });
 
